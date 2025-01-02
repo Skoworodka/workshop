@@ -1,0 +1,45 @@
+#!/bin/bash
+# Configuration. First line it's download folder. Second line it's game number in steam workshop link
+if [[ ! -f config ]]; then
+    echo "Enter the dir to download the mods"
+    read -r folder
+    folder=$(cd "$folder" && pwd)
+    if [[ -d $folder ]];then
+        echo > ./config
+        sed -i "1 c${folder}" config
+    else 
+        echo "Enter the correct folder"
+        exit
+    fi
+    printf "Enter the game number in steam for example 294100(Rimworld)\nAutomatically 294100\n"
+    read -r game_num
+    if [[ $game_num = "" ]];then
+    sed -i "1 a294100" config 
+    else
+        sed -i "1 a${game_num}" config 
+    fi
+fi
+### Instalation ###
+printf "\tWhat you want to do\n1) Download the mod(s)\n2) Download the collection\n3) Update the collection\n"
+read -r answer
+work=$(sed '2!d' config)
+printf "force_install_dir $(cd $(sed '1!d' config) && pwd)\nlogin anonymous\n" > download_list
+if [[ $answer = 1 ]];then
+    echo "Enter links to mod(s)"
+    read -r https
+    https=($(echo "${https[@]}" | grep -Eo '[0-9]{9,11}'))
+    for i in "${https[@]}";do
+        echo "workshop_download_item $work $i" >> download_list
+    done
+    elif [[ $answer = 2 ]];then
+    echo "Enter link to collection"
+    read -r https 
+    for i in $(curl "$https" | grep -Eo 'sharedfile_[0-9]{9,11}' | tr -d '[:alpha:]'\_ );do
+        echo "workshop_download_item $work $i" >> download_list
+    done
+    elif [[ $answer = 3 ]];then
+    for i in $(ls $(awk '(NR == 1)' config));do
+    		rm download_list
+    		echo "workshop_download_item $work $i" >> download_list
+    done
+fi && steamcmd +runscript "$(pwd)"/download_list +quit
